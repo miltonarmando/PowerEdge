@@ -1,0 +1,10 @@
+Flask==2.3.3
+Flask-CORS==4.0.0
+websockets==11.0.3
+adafruit-circuitpython-ads1x15==2.2.21
+adafruit-blinka==8.22.2
+RPi.GPIO==0.7.1
+
+# Demo dependencies
+requests==2.31.0
+websocket-client==1.6.1

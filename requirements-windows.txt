@@ -1,0 +1,13 @@
+# PowerEdge Requirements - Windows/Demo Version
+# Use este arquivo para instalação em Windows ou para demonstração
+# Este arquivo exclui dependências específicas do Raspberry Pi
+
+Flask==2.3.3
+Flask-CORS==4.0.0
+websockets==11.0.3
+requests==2.31.0
+websocket-client==1.6.1
+
+# Dependências opcionais para simulação avançada
+matplotlib>=3.7.0  # Para gráficos (opcional)
+pandas>=2.0.0      # Para análise de dados (opcional)

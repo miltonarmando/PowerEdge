@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PowerEdge - Power Monitoring</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔋</text></svg>">
+</head>
+<body>
+    <!-- Sidebar -->
+    <nav class="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <span class="logo-icon">🔋</span>
+                <span class="logo-text">PowerEdge</span>
+            </div>
+            <button class="sidebar-toggle" onclick="toggleSidebar()">☰</button>
+        </div>
+        
+        <div class="sidebar-menu">
+            <a href="#dashboard" class="menu-item active" onclick="showSection('dashboard')">
+                <span class="menu-icon">📊</span>
+                <span class="menu-text">Dashboard</span>
+            </a>
+            <a href="#fontes" class="menu-item" onclick="showSection('fontes')">
+                <span class="menu-icon">⚡</span>
+                <span class="menu-text">Power Sources</span>
+            </a>
+            <a href="#eventos" class="menu-item" onclick="showSection('eventos')">
+                <span class="menu-icon">📋</span>
+                <span class="menu-text">History</span>
+            </a>
+            <a href="#estatisticas" class="menu-item" onclick="showSection('estatisticas')">
+                <span class="menu-icon">📈</span>
+                <span class="menu-text">Statistics</span>
+            </a>
+            <a href="#configuracoes" class="menu-item" onclick="showSection('configuracoes')">
+                <span class="menu-icon">⚙️</span>
+                <span class="menu-text">Settings</span>
+            </a>
+        </div>
+        
+        <div class="sidebar-footer">
+            <div class="connection-status">
+                <div class="status-indicator" id="connection-indicator"></div>
+                <span id="connection-text">Connecting...</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Header -->
+        <header class="main-header">
+            <div class="header-left">
+                <h1 id="page-title">Dashboard</h1>
+                <div class="breadcrumb">
+                    <span>PowerEdge</span>
+                    <span class="separator">›</span>
+                    <span id="breadcrumb-current">Dashboard</span>
+                </div>
+            </div>
+            <div class="header-right">
+                <!-- Global Operation Mode Indicator -->
+                <div class="global-mode-indicator" id="global-mode-indicator">
+                    <div class="mode-badge mode-tooltip" id="global-mode-badge" 
+                         data-tooltip="Current operation mode - click to view details"
+                         role="button" 
+                         tabindex="0"
+                         aria-label="Current operation mode">
+                        <span class="mode-badge-icon" id="global-mode-icon">🔧</span>
+                        <span class="mode-badge-text" id="global-mode-text">Hardware Mode</span>
+                        <span class="sr-only" id="global-mode-sr">Currently running in hardware mode</span>
+                    </div>
+                </div>
+                
+                <div class="status-cards">
+                    <div class="status-card">
+                        <span class="status-label">System</span>
+                        <span class="status-value" id="system-status">OK</span>
+                    </div>
+                    <div class="status-card">
+                        <span class="status-label">Hardware</span>
+                        <span class="status-value" id="hardware-status">-</span>
+                    </div>
+                    <div class="status-card">
+                        <span class="status-label">Last Update</span>
+                        <span class="status-value" id="last-update">-</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Dashboard Section -->
+        <section id="dashboard-section" class="content-section active">
+            <div class="dashboard-grid">
+                <!-- Overview Cards -->
+                <div class="overview-cards">
+                    <div class="overview-card total-sources">
+                        <div class="card-icon">⚡</div>
+                        <div class="card-content">
+                            <h3>Total Sources</h3>
+                            <div class="card-value" id="total-sources">4</div>
+                            <div class="card-subtitle">Monitored sources</div>
+                        </div>
+                    </div>
+                    
+                    <div class="overview-card active-sources">
+                        <div class="card-icon">✅</div>
+                        <div class="card-content">
+                            <h3>Active Sources</h3>
+                            <div class="card-value" id="active-sources">-</div>
+                            <div class="card-subtitle">Working normally</div>
+                        </div>
+                    </div>
+                    
+                    <div class="overview-card unstable-sources">
+                        <div class="card-icon">⚠️</div>
+                        <div class="card-content">
+                            <h3>Unstable Sources</h3>
+                            <div class="card-value" id="unstable-sources">0</div>
+                            <div class="card-subtitle">Operating with instability</div>
+                        </div>
+                    </div>
+                    
+                    <div class="overview-card failed-sources">
+                        <div class="card-icon">❌</div>
+                        <div class="card-content">
+                            <h3>Failed Sources</h3>
+                            <div class="card-value" id="failed-sources">-</div>
+                            <div class="card-subtitle">Require attention</div>
+                        </div>
+                    </div>
+                    
+                    <!--div class="overview-card uptime">
+                        <div class="card-icon">⏱️</div>
+                        <div class="card-content">
+                            <h3>Uptime</h3>
+                            <div class="card-value" id="system-uptime">-</div>
+                            <div class="card-subtitle">System active</div>
+                        </div>
+                    </div-->
+                </div>
+
+                <!-- Quick Status -->
+                <div class="quick-status">
+                    <h2>Quick Status</h2>
+                    <div id="quick-status-container">
+                        <!-- Status items will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Recent Events -->
+                <div class="recent-events">
+                    <h2>Recent Events</h2>
+                    <div id="recent-events-list">
+                        <!-- Recent events will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- System Performance Monitor -->
+                <div class="system-performance">
+                    <h2>System Performance</h2>
+                    <div class="performance-grid">
+                        <div class="performance-card">
+                            <div class="performance-header">
+                                <span class="performance-icon">🔧</span>
+                                <span class="performance-title">Operation Mode</span>
+                            </div>
+                            <div class="performance-value" id="operation-mode">Loading...</div>
+                            <div class="performance-detail" id="operation-detail">-</div>
+                        </div>
+                        
+                        <div class="performance-card">
+                            <div class="performance-header">
+                                <span class="performance-icon">📊</span>
+                                <span class="performance-title">Events/Hour</span>
+                            </div>
+                            <div class="performance-value" id="events-per-hour">-</div>
+                            <div class="performance-detail">Event rate</div>
+                        </div>
+                        
+                        <div class="performance-card">
+                            <div class="performance-header">
+                                <span class="performance-icon">🔗</span>
+                                <span class="performance-title">WebSocket Connections</span>
+                            </div>
+                            <div class="performance-value" id="websocket-connections">-</div>
+                            <div class="performance-detail">Connected clients</div>
+                        </div>
+                        
+                        <div class="performance-card">
+                            <div class="performance-header">
+                                <span class="performance-icon">💾</span>
+                                <span class="performance-title">Database Events</span>
+                            </div>
+                            <div class="performance-value" id="database-events">-</div>
+                            <div class="performance-detail">Total stored</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Fontes Section -->
+        <section id="fontes-section" class="content-section">
+            <div class="section-header">
+                <h2>Power Sources Monitoring</h2>
+                <div class="section-controls">
+                    <button class="btn btn-secondary" onclick="toggleView()">
+                        <span id="view-toggle-text">🔄 Update</span>
+                    </button>
+                </div>
+            </div>
+            <div id="fontes-container" class="fontes-grid">
+                <!-- Source cards will be inserted here -->
+            </div>
+        </section>
+
+        <!-- Eventos Section -->
+        <section id="eventos-section" class="content-section">
+            <div class="section-header">
+                <h2>Event History</h2>
+                <div class="section-controls">
+                    <div class="filter-group">
+                        <div class="filter-row">
+                            <div class="filter-item">
+                                <i class="filter-icon">⚙️</i>
+                                <select id="filtro-fonte" class="select-modern">
+                                    <option value="">All sources</option>
+                                </select>
+                            </div>
+                            <div class="filter-item">
+                                <i class="filter-icon">🔔</i>
+                                <select id="filtro-tipo" class="select-modern">
+                                    <option value="">All types</option>
+                                    <option value="ATIVA">Activation</option>
+                                    <option value="FALHA">Failure</option>
+                                    <option value="ERRO">Error</option>
+                                </select>
+                            </div>
+                            <div class="filter-item">
+                                <i class="filter-icon">📅</i>
+                                <select id="filtro-periodo" class="select-modern">
+                                    <option value="all">All time</option>
+                                    <option value="24h">Last 24 hours</option>
+                                    <option value="7d">Last 7 days</option>
+                                    <option value="30d">Last 30 days</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="filter-row">
+                            <div class="search-box">
+                                <i class="filter-icon">🔍</i>
+                                <input type="text" id="eventos-search" class="input-modern" placeholder="Search events..." />
+                            </div>
+                            <div class="filter-actions">
+                                <button class="btn btn-primary" onclick="app.loadEventData()">
+                                    <i class="btn-icon">🔍</i>Filter
+                                </button>
+                                <button class="btn btn-secondary" onclick="app.exportEvents()">
+                                    <i class="btn-icon">📊</i>Export
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="events-stats">
+                <div class="event-stat-item">
+                    <span id="total-events-count">0</span> events
+                </div>
+                <div class="event-stat-item">
+                    <span id="filtered-events-count">0</span> filtered events
+                </div>
+                <div class="event-stat-labels">
+                    <span class="event-label event-label-ativa">Active</span>
+                    <span class="event-label event-label-falha">Failure</span>
+                    <span class="event-label event-label-erro">Error</span>
+                </div>
+            </div>
+            
+            <div class="events-container">
+                <div id="eventos-lista" class="events-table">
+                    <!-- Events will be inserted here -->
+                </div>
+                <div class="events-pagination">
+                    <button id="load-more-events" class="btn btn-secondary">Load More</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Estatísticas Section -->
+        <section id="estatisticas-section" class="content-section">
+            <div class="section-header">
+                <h2>Statistics and Reports</h2>
+                <div class="section-controls">
+                    <select id="stats-source" class="select-modern">
+                        <option value="">All Sources</option>
+                    </select>
+                    <select id="stats-periodo" class="select-modern">
+                        <option value="24h">Last 24 hours</option>
+                        <option value="7d">Last 7 days</option>
+                        <option value="30d">Last 30 days</option>
+                    </select>
+                    <button class="btn btn-primary" onclick="loadStatistics()">🔄 Update</button>
+                </div>
+            </div>
+            
+            <div class="stats-summary">
+                <div id="stats-cards" class="stats-cards-grid">
+                    <!-- Summary cards will be inserted here -->
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stats-card">
+                    <h3>📊 Availability by Source</h3>
+                    <div class="chart-container">
+                        <canvas id="availability-chart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="stats-card">
+                    <h3>📈 Voltage by Source</h3>
+                    <div class="chart-container">
+                        <canvas id="voltage-chart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="stats-card">
+                    <h3>⏰ Events by Period</h3>
+                    <div class="chart-container">
+                        <canvas id="events-timeline"></canvas>
+                    </div>
+                </div>
+                
+                <div class="stats-card">
+                    <h3>🔋 Current Sources Status</h3>
+                    <div class="chart-container">
+                        <canvas id="status-distribution"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Configurações Section -->
+        <section id="configuracoes-section" class="content-section">
+            <div class="section-header">
+                <h2>System Settings</h2>
+            </div>
+            <div class="config-container">
+                <div class="config-card">
+                    <h3>Monitoring Settings</h3>
+                    <div class="config-form">
+                        <div class="form-group">
+                            <label for="intervalo-leitura">Reading Interval (s)</label>
+                            <input type="number" id="intervalo-leitura" step="0.1" min="0.1" value="1.0">
+                        </div>
+                        <div class="form-group">
+                            <label for="percentual-instabilidade">Instability Threshold (%)</label>
+                            <input type="number" id="percentual-instabilidade" step="1" min="50" max="90" value="70">
+                            <small class="form-help">Percentage of minimum limit to consider unstable</small>
+                        </div>
+                        <div class="form-group">
+                            <label>Notifications</label>
+                            <div class="checkbox-group">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="notify-failures" checked>
+                                    <span class="checkmark"></span>
+                                    Power failures
+                                </label>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" id="notify-recovery" checked>
+                                    <span class="checkmark"></span>
+                                    Power recovery
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="config-card">
+                    <h3>Voltage Limits by Source</h3>
+                    <div class="config-form">
+                        <div class="thresholds-grid">
+                            <div class="threshold-item">
+                                <div class="threshold-header">
+                                    <span class="threshold-icon">🏠</span>
+                                    <span class="threshold-name">Electric Grid</span>
+                                </div>
+                                <div class="threshold-controls">
+                                    <div class="form-group-inline">
+                                        <label for="threshold-rede">Minimum (V)</label>
+                                        <input type="number" id="threshold-rede" step="1" min="100" max="250" value="180">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="threshold-item">
+                                <div class="threshold-header">
+                                    <span class="threshold-icon">☀️</span>
+                                    <span class="threshold-name">Solar Power</span>
+                                </div>
+                                <div class="threshold-controls">
+                                    <div class="form-group-inline">
+                                        <label for="threshold-solar">Minimum (V)</label>
+                                        <input type="number" id="threshold-solar" step="1" min="80" max="200" value="120">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="threshold-item">
+                                <div class="threshold-header">
+                                    <span class="threshold-icon">⚡</span>
+                                    <span class="threshold-name">Generator</span>
+                                </div>
+                                <div class="threshold-controls">
+                                    <div class="form-group-inline">
+                                        <label for="threshold-gerador">Minimum (V)</label>
+                                        <input type="number" id="threshold-gerador" step="1" min="100" max="250" value="180">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="threshold-item">
+                                <div class="threshold-header">
+                                    <span class="threshold-icon">🔋</span>
+                                    <span class="threshold-name">UPS/Battery</span>
+                                </div>
+                                <div class="threshold-controls">
+                                    <div class="form-group-inline">
+                                        <label for="threshold-ups">Minimum (V)</label>
+                                        <input type="number" id="threshold-ups" step="0.1" min="5" max="20" value="10">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary">💾 Save Settings</button>
+                    </div>
+                </div>
+                
+                <div class="config-card">
+                    <h3>System Information</h3>
+                    <div class="system-info">
+                        <div class="info-row">
+                            <span class="info-label">Version:</span>
+                            <span class="info-value">PowerEdge v2.0</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Hardware:</span>
+                            <span class="info-value" id="hardware-info">Raspberry Pi 4B</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Uptime:</span>
+                            <span class="info-value" id="system-uptime">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">Database:</span>
+                            <span class="info-value">SQLite</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p>Loading data...</p>
+        </div>
+    </div>
+
+    <!-- Notification Containers -->
+    <!-- Feedbacks on top right -->
+    <div id="notification-container" class="notification-container"></div>
+    
+    <!-- Alarms on bottom right -->
+    <div id="alarm-notification-container" class="alarm-notification-container"></div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html>
