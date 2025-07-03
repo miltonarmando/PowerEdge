@@ -533,4 +533,4 @@ Este projeto está sob a licença MIT. Veja o arquivo `LICENSE` para mais detalh
 **PowerEdge v2.0** - Sistema Profissional de Monitoramento de Energia  
 Desenvolvido com ❤️ para Raspberry Pi e demonstrações
 
-📚 **Documentação completa disponível** | 🧪 **Modo simulação incluído** | 🔌 **API REST + WebSocket**
+📚 **Documentação completa disponível** | ⚡ **Modo hardware real exclusivo** | 🔌 **API REST + WebSocket**

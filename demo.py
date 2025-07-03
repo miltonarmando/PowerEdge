@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 PowerEdge Demo Script
-Demonstra as funcionalidades do sistema sem hardware
+Demonstra as funcionalidades do sistema com hardware real
 """
 
 import requests
@@ -158,7 +158,7 @@ class PowerEdgeDemo:
             if response.status_code == 200:
                 data = response.json()
                 
-                print(f"🔧 Hardware: {'Disponível' if data.get('hardware_disponivel') else 'Simulação'}")
+                print(f"🔧 Hardware: {'Disponível' if data.get('hardware_disponivel') else 'Indisponível'}")
                 print(f"⏰ Timestamp: {data.get('timestamp', 'N/A')}")
                 print()
                 
@@ -190,10 +190,10 @@ class PowerEdgeDemo:
         print("🔋 PowerEdge v2.0 - Demonstração do Sistema")
         print("=" * 50)
         print()
-        print("🧪 MODO SIMULAÇÃO ATIVO")
-        print("   • Sistema detectou automaticamente ausência de hardware Raspberry Pi")
-        print("   • Gerando dados realistas para demonstração")
-        print("   • Interface e funcionalidades idênticas ao modo produção")
+        print("🔧 MODO HARDWARE REAL")
+        print("   • Sistema configurado para usar apenas hardware real")
+        print("   • Requer Raspberry Pi com ADS1115 conectado")
+        print("   • Monitoramento em tempo real das fontes de energia")
         print()
         
         # Informações básicas

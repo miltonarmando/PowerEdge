@@ -347,13 +347,8 @@ class PowerEdgeApp {
     updateSystemStatus(data) {
         const hardwareStatus = document.getElementById('hardware-status');
         
-        if (data.hardware_disponivel) {
-            hardwareStatus.textContent = 'Hardware';
-            hardwareStatus.style.color = 'var(--success-600)';
-        } else {
-            hardwareStatus.textContent = 'Simulation';
-            hardwareStatus.style.color = 'var(--warning-600)';
-        }
+        hardwareStatus.textContent = 'Hardware Real';
+        hardwareStatus.style.color = 'var(--success-600)';
         
         document.getElementById('system-status').textContent = 'Online';
         document.getElementById('system-status').style.color = 'var(--success-600)';
@@ -473,19 +468,13 @@ class PowerEdgeApp {
         // Store server uptime
         this.serverUptimeSeconds = sistema.uptime_sistema || 0;
         
-        // Operation Mode
+        // Operation Mode - Always hardware real
         const operationMode = document.getElementById('operation-mode');
         const operationDetail = document.getElementById('operation-detail');
         if (operationMode && operationDetail) {
-            if (sistema.modo_hardware) {
-                operationMode.textContent = 'Hardware';
-                operationMode.className = 'performance-value success';
-                operationDetail.textContent = 'Physical sensors active';
-            } else {
-                operationMode.textContent = 'Simulation';
-                operationMode.className = 'performance-value warning';
-                operationDetail.textContent = 'Simulated data';
-            }
+            operationMode.textContent = 'Hardware Real';
+            operationMode.className = 'performance-value success';
+            operationDetail.textContent = 'Physical sensors active';
         }
 
         // Events per hour
@@ -928,7 +917,7 @@ class PowerEdgeApp {
         });
         
         // Generate uptime trend text based on context
-        let uptimeTrend = sistema.modo_hardware ? 'Hardware' : 'Simulation';
+        let uptimeTrend = 'Hardware Real';
         if (sourceFilter && uptimeStats.uptime_type === 'source') {
             if (uptimeStats.last_failure) {
                 uptimeTrend = 'Since last failure';
@@ -982,7 +971,7 @@ class PowerEdgeApp {
                     </div>
                     <div class="system-row">
                         <span>Mode:</span>
-                        <span style="color: ${sistema.modo_hardware ? '#059669' : '#f59e0b'}">${sistema.modo_hardware ? 'Hardware' : 'Simulation'}</span>
+                        <span style="color: #059669">Hardware Real</span>
                     </div>
                     <div class="system-row">
                         <span>DB Events:</span>
@@ -1334,8 +1323,7 @@ class PowerEdgeApp {
         // Update system information
         const hardwareInfo = document.getElementById('hardware-info');
         if (hardwareInfo) {
-            hardwareInfo.textContent = config.modo_simulacao ? 
-                'Simulation Mode' : 'Raspberry Pi 4B';
+            hardwareInfo.textContent = 'Raspberry Pi + ADS1115';
         }
 
         // Add event listener to save configuration
@@ -1652,11 +1640,7 @@ class PowerEdgeApp {
 
     // System status notification
     notifySystemStatus(status) {
-        if (status.hardware_mode) {
-            this.showNotification('🔧 Hardware mode active - Real monitoring', 'info');
-        } else {
-            this.showNotification('🔄 Simulation mode active - Simulated data', 'info');
-        }
+        this.showNotification('🔧 Hardware mode active - Real monitoring', 'info');
     }
 
     // Show source details modal or section

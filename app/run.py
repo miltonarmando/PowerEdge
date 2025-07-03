@@ -3,7 +3,6 @@ import threading
 import json
 import logging
 import os
-import random
 import time
 from contextlib import contextmanager
 from flask import Flask, jsonify, request, send_from_directory
@@ -11,15 +10,10 @@ from flask_cors import CORS
 import websockets
 import sqlite3
 from datetime import datetime, timedelta
-try:
-    import board
-    import busio
-    import adafruit_ads1x15.ads1115 as ADS
-    from adafruit_ads1x15.analog_in import AnalogIn
-    HARDWARE_AVAILABLE = True
-except ImportError:
-    HARDWARE_AVAILABLE = False
-    print("AVISO: Hardware não disponível. Executando em modo simulação.")
+import board
+import busio
+import adafruit_ads1x15.ads1115 as ADS
+from adafruit_ads1x15.analog_in import AnalogIn
 
 from config import *
 
@@ -41,35 +35,25 @@ STATIC_DIR = os.path.join(BASE_DIR, 'static')
 app = Flask(__name__, static_folder=STATIC_DIR, static_url_path='/static')
 CORS(app)
 
-# Inicialização do hardware (se disponível)
-if HARDWARE_AVAILABLE:
-    try:
-        i2c = busio.I2C(board.SCL, board.SDA)
-        ads = ADS.ADS1115(i2c, gain=ADS_GAIN, data_rate=ADS_DATA_RATE)
-        
-        fontes = {}
-        for nome, config in FONTES_CONFIG.items():
-            fontes[nome] = AnalogIn(ads, getattr(ADS, f'P{config["canal"]}'))
-        
-        logger.info("Hardware inicializado com sucesso")
-    except Exception as e:
-        logger.error(f"Erro ao inicializar hardware: {e}")
-        HARDWARE_AVAILABLE = False
-        fontes = {}
-else:
+# Inicialização do hardware
+try:
+    i2c = busio.I2C(board.SCL, board.SDA)
+    ads = ADS.ADS1115(i2c, gain=ADS_GAIN, data_rate=ADS_DATA_RATE)
+    
     fontes = {}
+    for nome, config in FONTES_CONFIG.items():
+        fontes[nome] = AnalogIn(ads, getattr(ADS, f'P{config["canal"]}'))
+    
+    logger.info("Hardware inicializado com sucesso")
+except Exception as e:
+    logger.error(f"Erro ao inicializar hardware: {e}")
+    raise RuntimeError(f"Hardware ADS1115 não foi detectado: {e}")
 
 estado_anterior = {nome: "ATIVA" for nome in FONTES_CONFIG.keys()}
 LIMIAR = LIMIAR_TENSAO
 
-# Variáveis para simulação avançada
-simulacao_iniciada = datetime.now()
-cenarios_simulacao = {
-    'rede': {'ultimo_evento': datetime.now(), 'estado_forcado': None, 'duracao_evento': 0},
-    'solar': {'ultimo_evento': datetime.now(), 'estado_forcado': None, 'duracao_evento': 0},
-    'gerador': {'ultimo_evento': datetime.now(), 'estado_forcado': None, 'duracao_evento': 0},
-    'ups': {'ultimo_evento': datetime.now(), 'estado_forcado': None, 'duracao_evento': 0}
-}
+# Variável para tracking do sistema
+sistema_iniciado = datetime.now()
 
 # Contexto manager para conexão segura com SQLite
 @contextmanager
@@ -259,122 +243,6 @@ def registrar_evento(fonte, tipo, tensao=None):
     except Exception as e:
         logger.error(f"Erro ao registrar evento: {e}")
 
-def simular_leitura_avancada(nome):
-    """
-    Simulação avançada com cenários realistas de quedas de energia,
-    flutuações e comportamentos dinâmicos baseados no tipo de fonte.
-    """
-    global cenarios_simulacao
-    
-    agora = datetime.now()
-    cenario = cenarios_simulacao[nome]
-    
-    # Configurações específicas por fonte
-    configs = {
-        'rede': {
-            'tensao_nominal': 220.0,
-            'variacao_normal': 8.0,  # ±8V variação normal
-            'prob_queda': 0.003,     # 0.3% chance de queda por leitura
-            'duracao_queda_min': 5,  # 5 segundos mínimo
-            'duracao_queda_max': 120, # 2 minutos máximo
-            'tensao_queda': lambda: random.uniform(0, 50),  # Tensão durante queda
-            'recuperacao_gradual': True
-        },
-        'solar': {
-            'tensao_nominal': 180.0,
-            'variacao_normal': 25.0,  # ±25V (dependente do sol)
-            'prob_queda': 0.008,      # 0.8% chance de "nuvem" ou problema
-            'duracao_queda_min': 10,
-            'duracao_queda_max': 300, # 5 minutos
-            'tensao_queda': lambda: random.uniform(20, 80),  # Redução parcial
-            'recuperacao_gradual': True,
-            'comportamento_hora': True  # Varia conforme hora do dia
-        },
-        'gerador': {
-            'tensao_nominal': 240.0,
-            'variacao_normal': 12.0,
-            'prob_queda': 0.005,      # 0.5% chance de falha
-            'duracao_queda_min': 3,
-            'duracao_queda_max': 60,
-            'tensao_queda': lambda: random.uniform(0, 30),  # Falha mais severa
-            'recuperacao_gradual': False  # Liga/desliga mais abrupto
-        },
-        'ups': {
-            'tensao_nominal': 12.6,   # Bateria 12V nominal
-            'variacao_normal': 0.8,   # ±0.8V
-            'prob_queda': 0.001,      # 0.1% chance de falha
-            'duracao_queda_min': 2,
-            'duracao_queda_max': 30,
-            'tensao_queda': lambda: random.uniform(9.5, 11.0),  # Bateria baixa
-            'recuperacao_gradual': True,
-            'descarga_gradual': True  # Simula descarga da bateria
-        }
-    }
-    
-    config = configs[nome]
-    
-    # Verificar se há evento forçado em andamento
-    if cenario['estado_forcado'] is not None:
-        tempo_evento = (agora - cenario['ultimo_evento']).total_seconds()
-        
-        if tempo_evento >= cenario['duracao_evento']:
-            # Finalizar evento
-            cenario['estado_forcado'] = None
-            logger.info(f"[SIMULAÇÃO] {nome}: Evento finalizado após {tempo_evento:.1f}s")
-        else:
-            # Continuar evento
-            if cenario['estado_forcado'] == 'FALHA':
-                tensao = config['tensao_queda']()
-                # Adicionar variação pequena durante a falha
-                tensao += random.uniform(-5, 5)
-                return max(0, tensao)
-    
-    # Verificar se deve iniciar novo evento
-    if cenario['estado_forcado'] is None and random.random() < config['prob_queda']:
-        # Iniciar evento de queda
-        cenario['estado_forcado'] = 'FALHA'
-        cenario['ultimo_evento'] = agora
-        cenario['duracao_evento'] = random.randint(
-            config['duracao_queda_min'], 
-            config['duracao_queda_max']
-        )
-        
-        tensao = config['tensao_queda']()
-        logger.warning(f"[SIMULAÇÃO] {nome}: Iniciando falha - {tensao:.1f}V por {cenario['duracao_evento']}s")
-        return tensao
-    
-    # Operação normal - calcular tensão baseada no tipo de fonte
-    tensao_base = config['tensao_nominal']
-    
-    # Comportamentos especiais
-    if nome == 'solar' and config.get('comportamento_hora', False):
-        # Simular variação solar baseada na hora
-        hora = agora.hour
-        if 6 <= hora <= 18:  # Período diurno
-            fator_sol = 0.3 + 0.7 * (1 - abs(hora - 12) / 6)  # Pico ao meio-dia
-            tensao_base *= fator_sol
-        else:  # Período noturno
-            tensao_base *= 0.1  # Solar quase zero à noite
-    
-    elif nome == 'ups' and config.get('descarga_gradual', False):
-        # Simular descarga gradual da bateria (muito lenta)
-        tempo_desde_inicio = (agora - simulacao_iniciada).total_seconds()
-        fator_descarga = max(0.85, 1 - (tempo_desde_inicio / 86400))  # 15% em 24h
-        tensao_base *= fator_descarga
-    
-    # Adicionar variação normal
-    variacao = random.uniform(-config['variacao_normal'], config['variacao_normal'])
-    tensao_final = tensao_base + variacao
-    
-    # Garantir valores mínimos realistas
-    tensao_final = max(0, tensao_final)
-    
-    return tensao_final
-
-def simular_leitura(nome):
-    """Wrapper para compatibilidade - usa simulação avançada"""
-    return simular_leitura_avancada(nome)
-
 async def enviar_dados(websocket, path):
     logger.info(f"Nova conexão WebSocket: {websocket.remote_address}")
     try:
@@ -382,10 +250,12 @@ async def enviar_dados(websocket, path):
             dados = {}
             for nome in FONTES_CONFIG.keys():
                 try:
-                    if HARDWARE_AVAILABLE and nome in fontes:
+                    # Sempre usar hardware real
+                    if nome in fontes:
                         tensao = fontes[nome].voltage
                     else:
-                        tensao = simular_leitura(nome)
+                        logger.error(f"Fonte {nome} não configurada no hardware")
+                        tensao = 0.0
                     
                     estado = determinar_estado_fonte(nome, tensao)
 
@@ -437,18 +307,19 @@ def status():
     try:
         logger.info("=== INÍCIO /status ===")
         logger.info(f"FONTES_CONFIG.keys(): {list(FONTES_CONFIG.keys())}")
-        logger.info(f"HARDWARE_AVAILABLE: {HARDWARE_AVAILABLE}")
+        logger.info("Sistema rodando em modo hardware real")
         
         dados = {}
         for nome in FONTES_CONFIG.keys():
             logger.info(f"Processando fonte: {nome}")
             
-            if HARDWARE_AVAILABLE and nome in fontes:
+            # Sempre usar hardware real
+            if nome in fontes:
                 tensao = fontes[nome].voltage
                 logger.info(f"  Hardware - {nome}: {tensao}V")
             else:
-                tensao = simular_leitura(nome)
-                logger.info(f"  Simulação - {nome}: {tensao}V")
+                logger.error(f"  Fonte {nome} não configurada no hardware")
+                tensao = 0.0
             
             estado = determinar_estado_fonte(nome, tensao)
             logger.info(f"  Estado - {nome}: {estado}")
@@ -463,7 +334,7 @@ def status():
         
         result = {
             "status": "ok",
-            "hardware_disponivel": HARDWARE_AVAILABLE,
+            "hardware_disponivel": True,
             "fontes": dados,
             "timestamp": datetime.now().isoformat()
         }
@@ -552,12 +423,12 @@ def calculate_uptime_stats(fonte_filtro, eventos):
                     last_failure_time = datetime.fromisoformat(last_failure[3].replace('Z', '+00:00'))
                 except ValueError:
                     # Fallback to system uptime if date parsing fails
-                    last_failure_time = simulacao_iniciada
+                    last_failure_time = sistema_iniciado
             
             uptime_seconds = (now - last_failure_time).total_seconds()
         else:
             # No failures found, use system uptime
-            uptime_seconds = (now - simulacao_iniciada).total_seconds()
+            uptime_seconds = (now - sistema_iniciado).total_seconds()
         
         return {
             'uptime_seconds': uptime_seconds,
@@ -587,7 +458,7 @@ def calculate_time_since_total_blackout(eventos):
     
     if not all_sources:
         # No sources configured, return system uptime
-        uptime_since_start = (now - simulacao_iniciada).total_seconds()
+        uptime_since_start = (now - sistema_iniciado).total_seconds()
         logger.debug("No sources configured, returning system uptime")
         return uptime_since_start, None
     
@@ -664,7 +535,7 @@ def calculate_time_since_total_blackout(eventos):
         return 0, current_blackout_start.strftime('%Y-%m-%d %H:%M:%S')
     
     # No total blackout found in the event history, use system uptime
-    uptime_since_start = (now - simulacao_iniciada).total_seconds()
+    uptime_since_start = (now - sistema_iniciado).total_seconds()
     logger.debug(f"No total blackout found, using system uptime: {uptime_since_start}s")
     return uptime_since_start, None
 
@@ -763,12 +634,12 @@ def estatisticas():
             logger.debug(f"System uptime - Last total blackout: {uptime_info.get('last_total_blackout')}")
         
         sistema_stats = {
-            'uptime_sistema': (datetime.now() - simulacao_iniciada).total_seconds(),
+            'uptime_sistema': (datetime.now() - sistema_iniciado).total_seconds(),
             'total_fontes': len(sources_to_process),
             'fontes_ativas': len([s for s in stats.values() if s['disponibilidade'] >= 80]),
             'eventos_por_hora': sum(s['total_eventos'] for s in stats.values()) / max(horas_periodo, 1),
             'disponibilidade_sistema': sum(s['disponibilidade'] for s in stats.values()) / len(stats) if stats else 0,
-            'modo_hardware': HARDWARE_AVAILABLE,
+            'modo_hardware': True,  # Sempre hardware real
             'conexoes_websocket_ativas': len(getattr(enviar_dados, '__clients__', [])),
             'versao': '2.0',
             'banco_eventos': len(eventos) if eventos else 0,
@@ -799,7 +670,6 @@ def get_configuracao():
     try:
         # Carregar configurações do banco de dados
         config = {
-            'modo_simulacao': not HARDWARE_AVAILABLE,
             'intervalo_leitura': get_config_value('intervalo_leitura', INTERVALO_LEITURA),
             'percentual_instabilidade': get_config_value('percentual_instabilidade', 70),
             'notify_failures': get_config_value('notify_failures', True),
@@ -1192,7 +1062,7 @@ def exportar_dados():
 if __name__ == "__main__":
     print("Iniciando PowerEdge v2.0...")
     print("="*50)
-    print(f"Hardware disponível: {'Sim' if HARDWARE_AVAILABLE else 'Não (Modo Simulação)'}")
+    print("Hardware: Modo Hardware Real Ativado")
     print(f"Porta Flask: {FLASK_PORT}")
     print(f"Porta WebSocket: {WEBSOCKET_PORT}")
     print(f"Base dir: {BASE_DIR}")

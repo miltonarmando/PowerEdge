@@ -1713,16 +1713,6 @@ body {
         background: #059669 !important;
         border: 3px solid #ffffff !important;
     }
-    
-    .mode-badge.simulation {
-        background: #d97706 !important;
-        border: 3px solid #ffffff !important;
-    }
-    
-    .simulation-banner {
-        background: #d97706 !important;
-        border: 3px solid #ffffff !important;
-    }
 }
 
 /* Reduced motion support */
@@ -1732,10 +1722,6 @@ body {
     }
     
     .mode-change-notification {
-        transition: none !important;
-    }
-    
-    .simulation-banner {
         transition: none !important;
     }
     
